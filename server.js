@@ -1913,6 +1913,13 @@ app.post('/api/bots/:id/control', async (req, res) => {
 
   return res.status(400).json({ error: 'Nieznana akcja sterowania.' });
 });
+app.get('/health', (_req, res) => {
+  res.send('ok');
+});
+
+app.get('/test', (_req, res) => {
+  res.send('test działa');
+});
 
 io.on('connection', (socket) => {
   socket.emit('bots:update', Array.from(bots.values()).map(safeBotView));
