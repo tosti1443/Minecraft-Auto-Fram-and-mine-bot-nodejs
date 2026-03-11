@@ -1,0 +1,884 @@
+﻿<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Botow Minecraft</title>
+    <style>
+      :root {
+        --bg: #efeee9;
+        --panel: #f5f4ef;
+        --line: #cfcac0;
+        --text: #1f1f1f;
+        --green: #2e8b57;
+        --orange: #d5812c;
+        --red: #c43737;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: var(--text);
+        background: linear-gradient(135deg, #e9e7df 0%, #dde8d9 100%);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 20px auto;
+        padding: 0 12px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+      .tab-btn {
+        border: 1px solid #c7c7c7;
+        background: #efefef;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .tab-btn.active { background: #2f8c3b; border-color: #2f8c3b; color: #fff; }
+      .tab { display: none; }
+      .tab.active { display: block; }
+
+      .controls, .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 8px;
+      }
+      label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+      input, select, button {
+        border: 1px solid #c8c8c8;
+        border-radius: 7px;
+        padding: 7px;
+        font-size: 13px;
+      }
+      button { cursor: pointer; }
+      button.accent { background: var(--orange); color: #fff; border-color: var(--orange); }
+      button.danger { background: var(--red); color: #fff; border-color: var(--red); }
+
+      .bot-list { display: grid; gap: 10px; margin-top: 10px; }
+      .bot-card {
+        background: #fff;
+        border: 1px solid #d9d9d9;
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .bot-head { display: flex; justify-content: space-between; align-items: center; }
+      .bot-name { font-size: 18px; font-weight: 700; }
+      .status, .coords { font-size: 12px; color: #4b4b4b; margin-top: 4px; }
+      .inline-edit { display: flex; gap: 8px; margin: 10px 0; }
+      .eq-box {
+        margin-top: 8px;
+        background: #111;
+        color: #9ef19e;
+        border-radius: 8px;
+        padding: 8px;
+        font-family: Consolas, monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      .miner-layout {
+        display: grid;
+        grid-template-columns: 250px 1fr;
+        gap: 10px;
+      }
+      .box {
+        background: #fff;
+        border: 1px dashed #d0d0d0;
+        border-radius: 8px;
+        padding: 8px;
+      }
+      .map-wrap {
+        border: 5px solid #111;
+        border-radius: 6px;
+        overflow: hidden;
+        width: fit-content;
+        max-width: 100%;
+      }
+      #mapCanvas { display: block; background: #0f0f0f; image-rendering: pixelated; }
+      .tiny { font-size: 11px; color: #666; margin-top: 6px; }
+      .legend { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+      .dot { display:inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; }
+
+      @media (max-width: 900px) {
+        .miner-layout { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Panel Botow Minecraft (Raspberry Pi 4)</h1>
+
+      <section class="panel">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="botsTab">Boty</button>
+          <button class="tab-btn" data-tab="minerTab">Zakladka Miner (mapa)</button>
+          <button class="tab-btn" data-tab="farmerTab">Zakladka Farmer</button>
+        </div>
+
+        <div id="botsTab" class="tab active">
+          <div class="controls">
+            <button id="connectAllBtn">Connect all bots</button>
+            <button id="disconnectAllBtn" class="danger">Disconnect all bots</button>
+          </div>
+
+          <form id="addBotForm" class="grid">
+            <label>Nick (username)<input name="username" required placeholder="bot_1" /></label>
+            <label>Nazwa bota<input name="name" placeholder="Moj Bot" /></label>
+            <label>Host<input name="host" required placeholder="127.0.0.1" /></label>
+            <label>Port<input name="port" type="number" value="25565" min="1" max="65535" /></label>
+            <label>Wersja MC<input name="version" value="1.21.1" /></label>
+            <label>Typ logowania
+              <select name="auth">
+                <option value="offline">offline</option>
+                <option value="microsoft">microsoft</option>
+              </select>
+            </label>
+            <div><button type="submit">Dodaj bota</button></div>
+          </form>
+
+          <section class="bot-list" id="botList"></section>
+        </div>
+
+        <div id="minerTab" class="tab">
+          <div class="miner-layout">
+            <div class="box">
+              <label>Bot do kopania
+                <select id="minerBotSelect"></select>
+              </label>
+              <div class="grid" style="margin-top:8px; grid-template-columns:repeat(2,minmax(120px,1fr));">
+                <label>Chunk radius<input id="mapChunkRadius" type="number" min="0" value="0" /></label>
+                <label>Min durability<input id="minerMinDur" type="number" min="1" value="20" /></label>
+                <label>Y min<input id="minerYMin" type="number" value="-64" /></label>
+                <label>Y max<input id="minerYMax" type="number" value="320" /></label>
+                <label>Surface map
+                  <select id="surfaceMode">
+                    <option value="1">TAK (polecane)</option>
+                    <option value="0">NIE</option>
+                  </select>
+                </label>
+                <label>Chest X<input id="minerChestX" type="number" /></label>
+                <label>Chest Y<input id="minerChestY" type="number" /></label>
+                <label>Chest Z<input id="minerChestZ" type="number" /></label>
+                <label style="display:flex;align-items:center;gap:8px;"><input id="minerPlaceChestsInCorner" type="checkbox" />Stawiaj skrzynki w rogu (bez chodzenia do podanej skrzynki)</label>
+              </div>
+
+              <div class="actions">
+                <button id="loadTopMapBtn" type="button">Wczytaj mape z gory</button>
+                <button id="clearSelectionBtn" type="button" class="accent">Wyczysc zaznaczenie</button>
+                <button id="startSelectedBtn" type="button">Kop zaznaczone pola</button>
+                <button id="startChunkBtn" type="button" class="accent">Kop aktualny chunk</button>
+                <button id="stopMinerBtn" type="button" class="danger">Stop miner</button>
+                <button id="depositAllBtn" type="button" class="accent">Odloz wszystko do skrzynki</button>
+              </div>
+              <div class="grid" style="margin-top:8px; grid-template-columns:2fr 1fr 1fr 1fr;">
+                <label>Nazwa configu minera<input id="minerCfgName" placeholder="np. kopalnia A" /></label>
+                <button id="saveMinerCfgBtn" type="button">Zapisz config</button>
+                <button id="startMinerCfgBtn" type="button" class="accent">Start z configu</button>
+                <button id="deleteMinerCfgBtn" type="button" class="danger">Usun config</button>
+              </div>
+              <label>Saved miner configi
+                <select id="minerCfgSelect"></select>
+              </label>
+              <div class="tiny" id="mapInfo">Zaznaczaj kliknieciem pola na mapie. Biale linie to granice chunkow.</div>
+              <div class="tiny">Auto-skrzynka: gdy EQ pelny i masz chesty w ekwipunku, bot sam postawi skrzynke w rogu obszaru.</div>
+            </div>
+
+            <div class="box">
+              <div class="map-wrap">
+                <canvas id="mapCanvas" width="640" height="640"></canvas>
+              </div>
+              <div class="legend">
+                <span><i class="dot" style="background:#7a7a7a"></i>skaly</span>
+                <span><i class="dot" style="background:#3d8f3d"></i>ziemia/trawa</span>
+                <span><i class="dot" style="background:#1e88e5"></i>woda</span>
+                <span><i class="dot" style="background:#7a5036"></i>drewno</span>
+                <span><i class="dot" style="background:#ffd54f"></i>piasek</span>
+                <span><i class="dot" style="background:#ef5350"></i>zaznaczone</span>
+                <span><i class="dot" style="background:#fff"></i>kolo = pozycja bota</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="farmerTab" class="tab">
+          <div class="miner-layout">
+            <div class="box">
+              <label>Bot farmer
+                <select id="farmerBotSelect"></select>
+              </label>
+              <div class="grid" style="margin-top:8px; grid-template-columns:repeat(2,minmax(120px,1fr));">
+                <label>Area X1<input id="farmerX1" type="number" /></label>
+                <label>Area X2<input id="farmerX2" type="number" /></label>
+                <label>Area Z1<input id="farmerZ1" type="number" /></label>
+                <label>Area Z2<input id="farmerZ2" type="number" /></label>
+                <label>Y min<input id="farmerYMin" type="number" /></label>
+                <label>Y max<input id="farmerYMax" type="number" /></label>
+                <label>Chest X<input id="farmerChestX" type="number" /></label>
+                <label>Chest Y<input id="farmerChestY" type="number" /></label>
+                <label>Chest Z<input id="farmerChestZ" type="number" /></label>
+              </div>
+              <div class="actions">
+                <button id="startFarmerBtn" type="button">Start farmer</button>
+                <button id="stopFarmerBtn" type="button" class="danger">Stop farmer</button>
+                <button id="depositFarmerBtn" type="button" class="accent">Odloz plony do skrzynki</button>
+              </div>
+              <div class="grid" style="margin-top:8px; grid-template-columns:2fr 1fr 1fr 1fr;">
+                <label>Nazwa configu farmera<input id="farmerCfgName" placeholder="np. farma glowna" /></label>
+                <button id="saveFarmerCfgBtn" type="button">Zapisz config</button>
+                <button id="startFarmerCfgBtn" type="button" class="accent">Start z configu</button>
+                <button id="deleteFarmerCfgBtn" type="button" class="danger">Usun config</button>
+              </div>
+              <label>Saved farmer configi
+                <select id="farmerCfgSelect"></select>
+              </label>
+              <div class="tiny">Farmer: zbiera dojrzale uprawy, od razu sadzi, a potem odklada do skrzynki.</div>
+              <div class="tiny">Jesli nie podasz skrzynki, bot sprobuje postawic auto-skrzynke z itemu chest.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const botListEl = document.getElementById('botList');
+      const addBotForm = document.getElementById('addBotForm');
+      const connectAllBtn = document.getElementById('connectAllBtn');
+      const disconnectAllBtn = document.getElementById('disconnectAllBtn');
+
+      const minerBotSelect = document.getElementById('minerBotSelect');
+      const mapChunkRadius = document.getElementById('mapChunkRadius');
+      const minerMinDur = document.getElementById('minerMinDur');
+      const minerYMin = document.getElementById('minerYMin');
+      const minerYMax = document.getElementById('minerYMax');
+      const surfaceMode = document.getElementById('surfaceMode');
+      const minerChestX = document.getElementById('minerChestX');
+      const minerChestY = document.getElementById('minerChestY');
+      const minerChestZ = document.getElementById('minerChestZ');
+      const minerPlaceChestsInCorner = document.getElementById('minerPlaceChestsInCorner');
+      const loadTopMapBtn = document.getElementById('loadTopMapBtn');
+      const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+      const startSelectedBtn = document.getElementById('startSelectedBtn');
+      const startChunkBtn = document.getElementById('startChunkBtn');
+      const stopMinerBtn = document.getElementById('stopMinerBtn');
+      const depositAllBtn = document.getElementById('depositAllBtn');
+      const mapInfo = document.getElementById('mapInfo');
+      const mapCanvas = document.getElementById('mapCanvas');
+      const mapCtx = mapCanvas.getContext('2d');
+      const minerCfgName = document.getElementById('minerCfgName');
+      const minerCfgSelect = document.getElementById('minerCfgSelect');
+      const saveMinerCfgBtn = document.getElementById('saveMinerCfgBtn');
+      const startMinerCfgBtn = document.getElementById('startMinerCfgBtn');
+      const deleteMinerCfgBtn = document.getElementById('deleteMinerCfgBtn');
+
+      const farmerBotSelect = document.getElementById('farmerBotSelect');
+      const farmerX1 = document.getElementById('farmerX1');
+      const farmerX2 = document.getElementById('farmerX2');
+      const farmerZ1 = document.getElementById('farmerZ1');
+      const farmerZ2 = document.getElementById('farmerZ2');
+      const farmerYMin = document.getElementById('farmerYMin');
+      const farmerYMax = document.getElementById('farmerYMax');
+      const farmerChestX = document.getElementById('farmerChestX');
+      const farmerChestY = document.getElementById('farmerChestY');
+      const farmerChestZ = document.getElementById('farmerChestZ');
+      const startFarmerBtn = document.getElementById('startFarmerBtn');
+      const stopFarmerBtn = document.getElementById('stopFarmerBtn');
+      const depositFarmerBtn = document.getElementById('depositFarmerBtn');
+      const farmerCfgName = document.getElementById('farmerCfgName');
+      const farmerCfgSelect = document.getElementById('farmerCfgSelect');
+      const saveFarmerCfgBtn = document.getElementById('saveFarmerCfgBtn');
+      const startFarmerCfgBtn = document.getElementById('startFarmerCfgBtn');
+      const deleteFarmerCfgBtn = document.getElementById('deleteFarmerCfgBtn');
+
+      let botsState = [];
+      let currentMap = null;
+      let selectedCells = new Set();
+      let cellSize = 16;
+      let lastMinerFormBotId = null;
+      let lastFarmerFormBotId = null;
+
+      async function api(path, method = 'GET', body) {
+        const response = await fetch(path, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (!response.ok) {
+          let message = 'Blad API';
+          try {
+            const data = await response.json();
+            message = data.error || message;
+          } catch {}
+          throw new Error(message);
+        }
+        if (response.status === 204) return null;
+        return response.json();
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function numOrNull(value) {
+        if (value === null || value === undefined || String(value).trim() === '') return null;
+        const n = Number(value);
+        return Number.isFinite(n) ? Math.floor(n) : null;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function colorForBlock(name, topY) {
+        if (!name || name === 'air') return '#0f0f0f';
+
+        let hue = 0;
+        let sat = 0;
+        let baseLight = 40;
+
+        if (name.includes('water')) { hue = 205; sat = 70; baseLight = 42; }
+        else if (name.includes('lava')) { hue = 10; sat = 85; baseLight = 50; }
+        else if (name.includes('grass') || name.includes('moss')) { hue = 110; sat = 55; baseLight = 42; }
+        else if (name.includes('dirt') || name.includes('mud')) { hue = 28; sat = 45; baseLight = 36; }
+        else if (name.includes('sand') || name.includes('sandstone')) { hue = 45; sat = 70; baseLight = 56; }
+        else if (name.includes('log') || name.includes('wood') || name.includes('planks')) { hue = 24; sat = 45; baseLight = 34; }
+        else if (name.includes('leaves')) { hue = 118; sat = 45; baseLight = 38; }
+        else if (name.includes('snow') || name.includes('ice')) { hue = 200; sat = 30; baseLight = 78; }
+        else if (name.includes('stone') || name.includes('deepslate') || name.includes('andesite') || name.includes('diorite') || name.includes('granite') || name.includes('tuff') || name.includes('cobble')) { hue = 0; sat = 0; baseLight = 42; }
+        else if (name.includes('chest') || name.includes('barrel')) { hue = 32; sat = 82; baseLight = 48; }
+        else { hue = 260; sat = 8; baseLight = 46; }
+
+        const yBoost = topY == null ? 0 : clamp((topY + 64) * 0.11, -10, 16);
+        const light = clamp(baseLight + yBoost, 18, 82);
+        return `hsl(${hue} ${sat}% ${light}%)`;
+      }
+
+      function cellKey(x, z) {
+        return `${x},${z}`;
+      }
+
+      function readChest() {
+        const x = numOrNull(minerChestX.value);
+        const y = numOrNull(minerChestY.value);
+        const z = numOrNull(minerChestZ.value);
+        const filled = [x, y, z].filter((v) => v !== null).length;
+        if (filled === 0) return null;
+        if (filled < 3) throw new Error('Jesli podajesz skrzynke, uzupelnij X/Y/Z.');
+        return { x, y, z };
+      }
+
+      function readFarmerChest() {
+        const x = numOrNull(farmerChestX.value);
+        const y = numOrNull(farmerChestY.value);
+        const z = numOrNull(farmerChestZ.value);
+        const filled = [x, y, z].filter((v) => v !== null).length;
+        if (filled === 0) return null;
+        if (filled < 3) throw new Error('Jesli podajesz skrzynke farmera, uzupelnij X/Y/Z.');
+        return { x, y, z };
+      }
+
+      function readFarmerArea() {
+        const x1 = numOrNull(farmerX1.value);
+        const x2 = numOrNull(farmerX2.value);
+        const z1 = numOrNull(farmerZ1.value);
+        const z2 = numOrNull(farmerZ2.value);
+        const yMin = numOrNull(farmerYMin.value);
+        const yMax = numOrNull(farmerYMax.value);
+        const all = [x1, x2, z1, z2, yMin, yMax];
+        if (all.some((v) => v === null)) throw new Error('Ustaw pelny obszar farmy: X1/X2/Z1/Z2/Y min/Y max.');
+        return { x1, x2, z1, z2, yMin, yMax };
+      }
+
+      function renderInventory(inv) {
+        if (!Array.isArray(inv) || inv.length === 0) return 'EQ: (pusty)';
+        return inv.map((it) => `[${it.slot}] ${it.name} x${it.count}`).join('\n');
+      }
+
+      function renderBotCards() {
+        if (botsState.length === 0) {
+          botListEl.innerHTML = '<div class="panel">Brak botow. Dodaj pierwszego.</div>';
+          return;
+        }
+
+        botListEl.innerHTML = botsState
+          .map((b) => {
+            const statusColor = b.connected ? '#1f7a1f' : '#7a1f1f';
+            const coords = b.coords ? `x=${b.coords.x} y=${b.coords.y} z=${b.coords.z}` : '-';
+            return `
+              <article class="bot-card" data-id="${b.id}">
+                <div class="bot-head">
+                  <div>
+                    <div class="bot-name">${escapeHtml(b.name || b.username)}</div>
+                    <div class="status">Nick: ${escapeHtml(b.username)} | ${escapeHtml(b.host)}:${b.port} | v${escapeHtml(b.version)}</div>
+                  </div>
+                  <strong style="color:${statusColor}">${b.connected ? 'ONLINE' : 'OFFLINE'}</strong>
+                </div>
+                <div class="status">Status: ${escapeHtml(b.status || '-')}</div>
+                <div class="coords">Koordynaty: ${coords}</div>
+                <div class="status">Miner: ${b.miner?.running ? 'dziala' : 'stop'} | wykopane: ${b.miner?.minedBlocks || 0}</div>
+                <div class="status">Farmer: ${b.farmer?.running ? 'dziala' : 'stop'} | zebrane: ${b.farmer?.harvested || 0} | zasadzone: ${b.farmer?.planted || 0}</div>
+                <div class="status">Trzymane: ${escapeHtml(b.heldItem ? `${b.heldItem.name} x${b.heldItem.count}` : '-')}</div>
+
+                <div class="inline-edit">
+                  <input value="${escapeHtml(b.name || '')}" placeholder="Nowa nazwa" data-role="nameInput" />
+                  <button class="accent" data-action="rename">Zmien nazwe</button>
+                </div>
+
+                <div class="actions">
+                  <button data-action="connect">Connect</button>
+                  <button data-action="disconnect" class="accent">Disconnect</button>
+                  <button data-action="remove" class="danger">Usun bota</button>
+                </div>
+
+                <div class="eq-box">${escapeHtml(renderInventory(b.inventory))}</div>
+              </article>`;
+          })
+          .join('');
+      }
+
+      function renderMinerBotSelect() {
+        const selected = minerBotSelect.value;
+        minerBotSelect.innerHTML = botsState
+          .map((b) => `<option value="${b.id}">${escapeHtml(b.name || b.username)} (${b.connected ? 'online' : 'offline'})</option>`)
+          .join('');
+
+        if (selected && botsState.some((b) => b.id === selected)) {
+          minerBotSelect.value = selected;
+        }
+      }
+
+      function renderFarmerBotSelect() {
+        const selected = farmerBotSelect.value;
+        farmerBotSelect.innerHTML = botsState
+          .map((b) => `<option value="${b.id}">${escapeHtml(b.name || b.username)} (${b.connected ? 'online' : 'offline'})</option>`)
+          .join('');
+
+        if (selected && botsState.some((b) => b.id === selected)) {
+          farmerBotSelect.value = selected;
+        }
+      }
+
+      function currentMinerBot() {
+        return botsState.find((b) => b.id === minerBotSelect.value) || null;
+      }
+      function currentFarmerBot() {
+        return botsState.find((b) => b.id === farmerBotSelect.value) || null;
+      }
+      function fillMinerFormFromConfig(config) {
+        if (!config || !config.area) return;
+        minerYMin.value = String(config.area.yMin ?? '');
+        minerYMax.value = String(config.area.yMax ?? '');
+        minerMinDur.value = String(config.minToolDurability ?? 20);
+        minerChestX.value = config.chest?.x ?? '';
+        minerChestY.value = config.chest?.y ?? '';
+        minerChestZ.value = config.chest?.z ?? '';
+        minerPlaceChestsInCorner.checked = config.placeChestsInCorner === true;
+      }
+      function fillFarmerFormFromConfig(config) {
+        if (!config || !config.area) return;
+        farmerX1.value = config.area.x1 ?? '';
+        farmerX2.value = config.area.x2 ?? '';
+        farmerZ1.value = config.area.z1 ?? '';
+        farmerZ2.value = config.area.z2 ?? '';
+        farmerYMin.value = config.area.yMin ?? '';
+        farmerYMax.value = config.area.yMax ?? '';
+        farmerChestX.value = config.chest?.x ?? '';
+        farmerChestY.value = config.chest?.y ?? '';
+        farmerChestZ.value = config.chest?.z ?? '';
+      }
+      function renderConfigSelects() {
+        const mb = currentMinerBot();
+        const fb = currentFarmerBot();
+        minerCfgSelect.innerHTML = '<option value="">-- wybierz zapisany config --</option>' +
+          ((mb?.minerProfiles || []).map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join(''));
+        farmerCfgSelect.innerHTML = '<option value="">-- wybierz zapisany config --</option>' +
+          ((fb?.farmerProfiles || []).map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join(''));
+
+        const minerBotId = mb?.id || null;
+        if (minerBotId !== lastMinerFormBotId) {
+          if (mb?.miner?.config?.area) fillMinerFormFromConfig(mb.miner.config);
+          lastMinerFormBotId = minerBotId;
+        }
+
+        const farmerBotId = fb?.id || null;
+        if (farmerBotId !== lastFarmerFormBotId) {
+          if (fb?.farmer?.config?.area) fillFarmerFormFromConfig(fb.farmer.config);
+          lastFarmerFormBotId = farmerBotId;
+        }
+      }
+      function renderMap() {
+        if (!currentMap || !currentMap.cells) {
+          mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+          mapInfo.textContent = 'Brak mapy. Kliknij "Wczytaj mape z gory".';
+          return;
+        }
+
+        const width = currentMap.width;
+        const height = currentMap.height;
+        cellSize = Math.max(7, Math.floor(Math.min(960 / width, 960 / height)));
+        mapCanvas.width = width * cellSize;
+        mapCanvas.height = height * cellSize;
+
+        mapCtx.fillStyle = '#0f0f0f';
+        mapCtx.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+        for (const cell of currentMap.cells) {
+          const dx = (cell.x - currentMap.area.x1) * cellSize;
+          const dz = (cell.z - currentMap.area.z1) * cellSize;
+          const key = cellKey(cell.x, cell.z);
+
+          mapCtx.fillStyle = selectedCells.has(key) ? '#ef5350' : colorForBlock(cell.blockName, cell.topY);
+          mapCtx.fillRect(dx, dz, cellSize, cellSize);
+
+          const chunkBorder = (cell.x % 16 === 0) || (cell.z % 16 === 0);
+          mapCtx.strokeStyle = chunkBorder ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.20)';
+          mapCtx.lineWidth = chunkBorder ? 1.4 : 1;
+          mapCtx.strokeRect(dx + 0.5, dz + 0.5, cellSize - 1, cellSize - 1);
+        }
+
+        if (currentMap.center) {
+          const bx = (currentMap.center.x - currentMap.area.x1) * cellSize + cellSize / 2;
+          const bz = (currentMap.center.z - currentMap.area.z1) * cellSize + cellSize / 2;
+          mapCtx.strokeStyle = '#fff';
+          mapCtx.lineWidth = 2;
+          mapCtx.beginPath();
+          mapCtx.arc(bx, bz, Math.max(3, Math.floor(cellSize * 0.32)), 0, Math.PI * 2);
+          mapCtx.stroke();
+        }
+
+        mapInfo.textContent = `Mapa ${width}x${height}, zaznaczone pola: ${selectedCells.size}.`;
+      }
+
+      function getCellAtCanvasPos(canvasX, canvasY) {
+        if (!currentMap) return null;
+        const gx = Math.floor(canvasX / cellSize);
+        const gz = Math.floor(canvasY / cellSize);
+        if (gx < 0 || gz < 0 || gx >= currentMap.width || gz >= currentMap.height) return null;
+        return { x: currentMap.area.x1 + gx, z: currentMap.area.z1 + gz };
+      }
+
+      function activateTab(tabId) {
+        document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.id === tabId));
+        document.querySelectorAll('.tab-btn').forEach((el) => el.classList.toggle('active', el.dataset.tab === tabId));
+      }
+
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+      });
+
+      addBotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(addBotForm);
+        try {
+          await api('/api/bots', 'POST', {
+            username: fd.get('username'),
+            name: fd.get('name'),
+            host: fd.get('host'),
+            port: Number(fd.get('port')),
+            version: fd.get('version'),
+            auth: fd.get('auth'),
+          });
+          addBotForm.reset();
+          addBotForm.querySelector('[name="port"]').value = '25565';
+          addBotForm.querySelector('[name="version"]').value = '1.21.1';
+          addBotForm.querySelector('[name="auth"]').value = 'offline';
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      connectAllBtn.addEventListener('click', async () => {
+        try { await api('/api/bots/connect-all', 'POST'); } catch (err) { alert(err.message); }
+      });
+
+      disconnectAllBtn.addEventListener('click', async () => {
+        try { await api('/api/bots/disconnect-all', 'POST'); } catch (err) { alert(err.message); }
+      });
+
+      botListEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const card = e.target.closest('.bot-card');
+        if (!card) return;
+
+        const botId = card.dataset.id;
+        const action = btn.dataset.action;
+
+        try {
+          if (action === 'connect') await api(`/api/bots/${botId}/connect`, 'POST');
+          if (action === 'disconnect') await api(`/api/bots/${botId}/disconnect`, 'POST');
+          if (action === 'remove') await api(`/api/bots/${botId}`, 'DELETE');
+          if (action === 'rename') {
+            const nameInput = card.querySelector('[data-role="nameInput"]');
+            await api(`/api/bots/${botId}`, 'PUT', { name: nameInput.value });
+          }
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      loadTopMapBtn.addEventListener('click', async () => {
+        try {
+          const botId = minerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+
+          const chunkRadius = numOrNull(mapChunkRadius.value) ?? 0;
+          const yMin = numOrNull(minerYMin.value) ?? -64;
+          const yMax = numOrNull(minerYMax.value) ?? 320;
+          const surface = surfaceMode.value === '1' ? '1' : '0';
+
+          const query = new URLSearchParams({
+            chunkRadius: String(chunkRadius),
+            yMin: String(yMin),
+            yMax: String(yMax),
+            surface,
+          });
+
+          const data = await api(`/api/bots/${botId}/miner/topdown-map?${query.toString()}`);
+          currentMap = data.map;
+          selectedCells = new Set();
+          renderMap();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      mapCanvas.addEventListener('click', (e) => {
+        if (!currentMap) return;
+        const rect = mapCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const cell = getCellAtCanvasPos(x, y);
+        if (!cell) return;
+
+        const key = cellKey(cell.x, cell.z);
+        if (selectedCells.has(key)) selectedCells.delete(key);
+        else selectedCells.add(key);
+        renderMap();
+      });
+
+      clearSelectionBtn.addEventListener('click', () => {
+        selectedCells = new Set();
+        renderMap();
+      });
+
+      startSelectedBtn.addEventListener('click', async () => {
+        try {
+          const botId = minerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          if (selectedCells.size === 0) throw new Error('Najpierw zaznacz pola na mapie.');
+
+          const chest = readChest();
+          const columns = Array.from(selectedCells).map((k) => {
+            const [x, z] = k.split(',').map(Number);
+            return { x, z };
+          });
+
+          await api(`/api/bots/${botId}/miner/start-selected`, 'POST', {
+            columns,
+            yMin: numOrNull(minerYMin.value) ?? -64,
+            yMax: numOrNull(minerYMax.value) ?? 320,
+            minToolDurability: numOrNull(minerMinDur.value) ?? 20,
+            chest,
+            placeChestsInCorner: minerPlaceChestsInCorner.checked === true,
+          });
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      startChunkBtn.addEventListener('click', async () => {
+        try {
+          const botId = minerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          const chest = readChest();
+
+          await api(`/api/bots/${botId}/miner/start-current-chunk`, 'POST', {
+            yMin: numOrNull(minerYMin.value) ?? -64,
+            yMax: numOrNull(minerYMax.value) ?? 320,
+            chunkRadius: numOrNull(mapChunkRadius.value) ?? 0,
+            minToolDurability: numOrNull(minerMinDur.value) ?? 20,
+            chest,
+            placeChestsInCorner: minerPlaceChestsInCorner.checked === true,
+          });
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      depositAllBtn.addEventListener('click', async () => {
+        try {
+          const botId = minerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          await api(`/api/bots/${botId}/deposit-all`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      stopMinerBtn.addEventListener('click', async () => {
+        try {
+          const botId = minerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          await api(`/api/bots/${botId}/miner/stop`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      startFarmerBtn.addEventListener('click', async () => {
+        try {
+          const botId = farmerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          const area = readFarmerArea();
+          const chest = readFarmerChest();
+          await api(`/api/bots/${botId}/farmer/start`, 'POST', { area, chest });
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      stopFarmerBtn.addEventListener('click', async () => {
+        try {
+          const botId = farmerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          await api(`/api/bots/${botId}/farmer/stop`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      depositFarmerBtn.addEventListener('click', async () => {
+        try {
+          const botId = farmerBotSelect.value;
+          if (!botId) throw new Error('Wybierz bota.');
+          await api(`/api/bots/${botId}/farmer/deposit-all`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      minerBotSelect.addEventListener('change', () => renderConfigSelects());
+      farmerBotSelect.addEventListener('change', () => renderConfigSelects());
+      saveMinerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentMinerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          if (!bot.miner?.config?.area) throw new Error('Brak configu minera do zapisu. Najpierw ustaw i uruchom minera.');
+          const config = JSON.parse(JSON.stringify(bot.miner.config));
+          config.minToolDurability = numOrNull(minerMinDur.value) ?? config.minToolDurability ?? 20;
+          config.area.yMin = numOrNull(minerYMin.value) ?? config.area.yMin;
+          config.area.yMax = numOrNull(minerYMax.value) ?? config.area.yMax;
+          config.chest = readChest();
+          config.placeChestsInCorner = minerPlaceChestsInCorner.checked === true;
+          await api(`/api/bots/${bot.id}/miner/configs`, 'POST', { name: minerCfgName.value, config });
+          minerCfgName.value = '';
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      deleteMinerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentMinerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          if (!minerCfgSelect.value) throw new Error('Wybierz config do usuniecia.');
+          await api(`/api/bots/${bot.id}/miner/configs/${minerCfgSelect.value}`, 'DELETE');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      startMinerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentMinerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          if (!minerCfgSelect.value) throw new Error('Wybierz config.');
+          await api(`/api/bots/${bot.id}/miner/start-config/${minerCfgSelect.value}`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      minerCfgSelect.addEventListener('change', () => {
+        const bot = currentMinerBot();
+        if (!bot) return;
+        const profile = (bot.minerProfiles || []).find((p) => p.id === minerCfgSelect.value);
+        if (profile) fillMinerFormFromConfig(profile.config);
+      });
+      saveFarmerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentFarmerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          await api(`/api/bots/${bot.id}/farmer/configs`, 'POST', { name: farmerCfgName.value, config: { area: readFarmerArea(), chest: readFarmerChest() } });
+          farmerCfgName.value = '';
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      deleteFarmerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentFarmerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          if (!farmerCfgSelect.value) throw new Error('Wybierz config do usuniecia.');
+          await api(`/api/bots/${bot.id}/farmer/configs/${farmerCfgSelect.value}`, 'DELETE');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      startFarmerCfgBtn.addEventListener('click', async () => {
+        try {
+          const bot = currentFarmerBot();
+          if (!bot) throw new Error('Wybierz bota.');
+          if (!farmerCfgSelect.value) throw new Error('Wybierz config.');
+          await api(`/api/bots/${bot.id}/farmer/start-config/${farmerCfgSelect.value}`, 'POST');
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      farmerCfgSelect.addEventListener('change', () => {
+        const bot = currentFarmerBot();
+        if (!bot) return;
+        const profile = (bot.farmerProfiles || []).find((p) => p.id === farmerCfgSelect.value);
+        if (profile) fillFarmerFormFromConfig(profile.config);
+      });
+      socket.on('bots:update', (bots) => {
+        botsState = Array.isArray(bots) ? bots : [];
+        renderBotCards();
+        renderMinerBotSelect();
+        renderFarmerBotSelect();
+        renderConfigSelects();
+      });
+
+      (async () => {
+        try {
+          botsState = await api('/api/bots');
+          renderBotCards();
+          renderMinerBotSelect();
+          renderFarmerBotSelect();
+        renderConfigSelects();
+          renderMap();
+        } catch (err) {
+          botListEl.innerHTML = `<div class="panel">Blad ladowania: ${escapeHtml(err.message)}</div>`;
+        }
+      })();
+    </script>
+  </body>
+</html>
+
+
+
