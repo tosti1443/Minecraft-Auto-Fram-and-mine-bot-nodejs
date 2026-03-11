@@ -1,0 +1,19 @@
+﻿{
+    "name":  "raspi-mc-bot-panel",
+    "version":  "1.0.0",
+    "description":  "Web GUI to manage Mineflayer bots on Raspberry Pi 4",
+    "main":  "server.js",
+    "scripts":  {
+                    "start":  "node server.js"
+                },
+    "engines":  {
+                    "node":  "\u003e=18"
+                },
+    "dependencies":  {
+                         "express":  "^4.21.2",
+                         "mineflayer":  "^4.20.1",
+                         "socket.io":  "^4.8.1",
+                         "mineflayer-pathfinder":  "^2.4.5",
+                         "vec3":  "^0.1.10"
+                     }
+}

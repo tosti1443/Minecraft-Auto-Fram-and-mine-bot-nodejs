@@ -1,0 +1,129 @@
+[
+  {
+    "id": "mmjl75e9-ru6bd9",
+    "name": "afk1",
+    "username": "afk1",
+    "host": "94.130.51.158",
+    "port": 50071,
+    "version": "1.21.1",
+    "auth": "offline",
+    "minerConfig": {
+      "area": {
+        "x1": -1664,
+        "x2": -1649,
+        "z1": 368,
+        "z2": 383,
+        "yMin": -64,
+        "yMax": 320
+      },
+      "columns": [],
+      "chest": {
+        "x": -1664,
+        "y": 37,
+        "z": 368
+      },
+      "minToolDurability": 20
+    },
+    "farmerConfig": {
+      "area": null,
+      "chest": null
+    },
+    "minerProfiles": [
+      {
+        "id": "mmjr4fb4-hhntc2d",
+        "name": "chunk1",
+        "config": {
+          "area": {
+            "x1": -1664,
+            "x2": -1649,
+            "z1": 368,
+            "z2": 383,
+            "yMin": -64,
+            "yMax": 320
+          },
+          "columns": [],
+          "chest": {
+            "x": -1664,
+            "y": 37,
+            "z": 368
+          },
+          "minToolDurability": 20
+        }
+      }
+    ],
+    "farmerProfiles": [
+      {
+        "id": "mmjr8bsy-p4mclx3",
+        "name": "ziemniaki",
+        "config": {
+          "area": {
+            "x1": -1611,
+            "x2": -1571,
+            "z1": 389,
+            "z2": 448,
+            "yMin": 92,
+            "yMax": 92
+          },
+          "chest": {
+            "x": -1570,
+            "y": 93,
+            "z": 401
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "mmjpofag-2244sjd",
+    "name": "afkcreeper",
+    "username": "afkcreeper",
+    "host": "94.130.51.158",
+    "port": 50071,
+    "version": "1.21.1",
+    "auth": "offline",
+    "minerConfig": {
+      "area": null,
+      "columns": [],
+      "chest": null,
+      "minToolDurability": 20
+    },
+    "farmerConfig": {
+      "area": null,
+      "chest": null
+    },
+    "minerProfiles": [],
+    "farmerProfiles": []
+  },
+  {
+    "id": "mmjq05oh-n9lahwo",
+    "name": "farmer",
+    "username": "farmer",
+    "host": "94.130.51.158",
+    "port": 50071,
+    "version": "1.21.1",
+    "auth": "offline",
+    "minerConfig": {
+      "area": null,
+      "columns": [],
+      "chest": null,
+      "minToolDurability": 20
+    },
+    "farmerConfig": {
+      "area": {
+        "x1": -1611,
+        "x2": -1570,
+        "z1": 389,
+        "z2": 448,
+        "yMin": 93,
+        "yMax": 93
+      },
+      "chest": {
+        "x": -1570,
+        "y": 93,
+        "z": 401
+      }
+    },
+    "minerProfiles": [],
+    "farmerProfiles": []
+  }
+]
